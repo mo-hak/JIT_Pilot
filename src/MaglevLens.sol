@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
+import {IEVault, IERC20} from "evk/EVault/IEVault.sol";
+import {RPow} from "evk/EVault/shared/lib/RPow.sol";
+import {IEulerSwapFactory} from "euler-swap/interfaces/IEulerSwapFactory.sol";
+import {IEulerSwap} from "euler-swap/interfaces/IEulerSwap.sol";
+
+contract MaglevLens {
+    // Packed: underlying asset (address), decimals (uint8), symbol (variable)
+
+    function vaultsStatic(address[] calldata vaults) external view returns (bytes[] memory output) {
+        output = new bytes[](vaults.length);
+        for (uint i; i < vaults.length; ++i) {
+            IEVault v = IEVault(vaults[i]);
+            output[i] = abi.encodePacked(v.asset(), v.decimals(), v.symbol());
+        }
+    }
+
+    struct VaultGlobal {
+        uint256 packed1; // cash, borrows, supply cap, borrow cap
+        uint256 packed2; // shares, supply APY, borrow APY
+    }
+
+    function vaultsGlobal(address[] calldata vaults) external view returns (VaultGlobal[] memory output) {
+        output = new VaultGlobal[](vaults.length);
+
+        for (uint i; i < vaults.length; ++i) {
+            IEVault v = IEVault(vaults[i]);
+
+            uint256 cash = v.cash();
+            uint256 borrows = v.totalBorrows();
+
+            (uint256 borrowAPY, uint256 supplyAPY) = _computeAPYs(v.interestRate(), cash, borrows, v.interestFee());
+            (uint16 supplyCap, uint16 borrowCap) = v.caps();
+
+            output[i].packed1 = (cash << (112 + 16 + 16)) | (borrows << (16 + 16)) | (supplyCap << 16) | borrowCap;
+            output[i].packed2 = (v.totalSupply() << (48 + 48)) | (supplyAPY << 48) | borrowAPY;
+        }
+    }
+
+    struct VaultPersonalState {
+        uint256 packed;
+    }
+
+    function vaultsPersonalState(address evc, address me, uint256 subAccountBitmask, address[] calldata vaults) external view returns (VaultPersonalState[] memory output) {
+        uint256 numAccounts;
+        for (uint256 b = subAccountBitmask; b != 0; b >>= 1) if (b & 1 != 0) numAccounts++;
+
+        output = new VaultPersonalState[](numAccounts * vaults.length);
+
+        uint256 currAccount;
+        for (uint256 i;; ++i) {
+            if (subAccountBitmask & (1 << i) == 0) continue;
+
+            address a = address(uint160(uint256(uint160(me)) ^ i));
+
+            for (uint256 j; j < vaults.length; ++j) {
+                IEVault v = IEVault(vaults[j]);
+
+                uint256 index = (currAccount * vaults.length) + j;
+                uint256 flags = (IEVC(evc).isCollateralEnabled(a, address(v)) ? 1 : 0) | (IEVC(evc).isControllerEnabled(a, address(v)) ? 2 : 0);
+                output[index].packed = (flags << 224) | (v.balanceOf(a) << 112) | v.debtOf(a);
+            }
+
+            if (++currAccount >= numAccounts) break;
+        }
+    }
+
+
+
+
+
+    uint256 internal constant SECONDS_PER_YEAR = 365.2425 * 86400;
+
+    function _computeAPYs(uint256 borrowSPY, uint256 cash, uint256 borrows, uint256 interestFee) internal pure returns (uint256 borrowAPY, uint256 supplyAPY) {
+        uint256 totalAssets = cash + borrows;
+        bool overflow;
+
+        (borrowAPY, overflow) = RPow.rpow(borrowSPY + 1e27, SECONDS_PER_YEAR, 1e27);
+
+        if (overflow) return (0, 0);
+
+        borrowAPY -= 1e27;
+        supplyAPY = totalAssets == 0 ? 0 : borrowAPY * borrows * (1e4 - interestFee) / totalAssets / 1e4;
+
+        borrowAPY /= 1e18;
+        supplyAPY /= 1e18;
+    }
+
+    function getLTVPair(address vault0, address vault1) external view returns (uint16, uint16) {
+        return (
+            IEVault(vault0).LTVBorrow(vault1),
+            IEVault(vault1).LTVBorrow(vault0)
+        );
+    }
+
+
+
+
+    struct EulerSwapData {
+        address addr;
+        IEulerSwap.Params params;
+        address asset0;
+        address asset1;
+        uint256 reserve0;
+        uint256 reserve1;
+        uint256 inLimit01;
+        uint256 outLimit01;
+        uint256 inLimit10;
+        uint256 outLimit10;
+    }
+
+    function getEulerSwapData(address poolAddr) internal view returns (EulerSwapData memory output) {
+        IEulerSwap pool = IEulerSwap(poolAddr);
+        output.addr = poolAddr;
+        output.params = pool.getParams();
+        {
+            (uint112 reserve0, uint112 reserve1, ) = pool.getReserves();
+            output.reserve0 = reserve0;
+            output.reserve1 = reserve1;
+        }
+        (address asset0, address asset1) = pool.getAssets();
+        output.asset0 = asset0;
+        output.asset1 = asset1;
+        (output.inLimit01, output.outLimit01) = pool.getLimits(asset0, asset1);
+        (output.inLimit10, output.outLimit10) = pool.getLimits(asset1, asset0);
+    }
+
+    function getMyEulerSwap(address eulerSwapFactory, address me) external view returns (EulerSwapData memory output) {
+        address poolAddr = IEulerSwapFactory(eulerSwapFactory).poolByEulerAccount(me);
+        if (poolAddr != address(0)) output = getEulerSwapData(poolAddr);
+    }
+
+    function getEulerSwaps(address eulerSwapFactory) external view returns (EulerSwapData[] memory output) {
+        address[] memory addrs = IEulerSwapFactory(eulerSwapFactory).pools();
+
+        output = new EulerSwapData[](addrs.length);
+
+        for (uint256 i = 0; i < addrs.length; ++i) {
+            output[i] = getEulerSwapData(addrs[i]);
+        }
+    }
+
+    function eulerSwapQuoteMulti(address[] memory eulerSwaps, address tokenIn, address tokenOut, uint256 amount, bool exactIn) external view returns (uint256[] memory quotes) {
+        quotes = new uint256[](eulerSwaps.length);
+
+        for (uint256 i = 0; i < eulerSwaps.length; ++i) {
+            try IEulerSwap(eulerSwaps[i]).computeQuote(tokenIn, tokenOut, amount, exactIn) returns (uint256 q) {
+                quotes[i] = q;
+            } catch {
+            }
+        }
+    }
+
+    error AssertEulerSwapReservesFailure();
+
+    function assertEulerSwapReserves(address eulerSwap, uint112 reserve0Min, uint112 reserve0Max, uint112 reserve1Min, uint112 reserve1Max) external view {
+        (uint112 reserve0, uint112 reserve1, ) = IEulerSwap(eulerSwap).getReserves();
+        require(reserve0 >= reserve0Min && reserve0 <= reserve0Max, AssertEulerSwapReservesFailure());
+        require(reserve1 >= reserve1Min && reserve1 <= reserve1Max, AssertEulerSwapReservesFailure());
+    }
+}
