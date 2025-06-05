@@ -3,7 +3,7 @@
 	url = https://github.com/foundry-rs/forge-std
 [submodule "libflat/euler-swap"]
 	path = libflat/euler-swap
-	url = git@github.com:euler-xyz/euler-swap
+	url = https://github.com/euler-xyz/euler-swap
 [submodule "libflat/euler-vault-kit"]
 	path = libflat/euler-vault-kit
 	url = https://github.com/euler-xyz/euler-vault-kit
