@@ -14,6 +14,7 @@ contract DeployMaglevLens is Script {
         vm.startBroadcast(deployerAddress);
 
         address maglevLens = address(new MaglevLens());
+        console.log("MAGLEVLENS = ", maglevLens);
 
         vm.stopBroadcast();
     }
