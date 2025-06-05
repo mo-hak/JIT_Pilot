@@ -226,7 +226,7 @@ contract DeployDev is Script {
     function deployEulerSwap() internal {
         poolManager = address(PoolManagerDeployer.deploy(address(this)));
         eulerSwapImpl = address(new EulerSwap(address(evc), poolManager));
-        eulerSwapFactory = new EulerSwapFactory(address(evc), address(factory), eulerSwapImpl, address(0));
+        eulerSwapFactory = new EulerSwapFactory(address(evc), address(factory), eulerSwapImpl, address(0), address(0));
         eulerSwapPeriphery = new EulerSwapPeriphery();
 
         string memory result = vm.serializeAddress("eulerSwap", "eulerSwapFactory", address(eulerSwapFactory));
