@@ -2,7 +2,7 @@
 
 set -e
 
-anvil &
+anvil --code-size-limit 100000 &
 sleep 1
 
 bash ./dev-setup.sh
