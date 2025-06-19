@@ -55,6 +55,7 @@ struct Asset {
     address asset;
     address vault;
     string price;
+    uint256 priceNum;
 }
 
 contract DeployDev is Script {
@@ -169,11 +170,12 @@ contract DeployDev is Script {
         vm.writeJson(result, "./dev-ctx/addresses/31337/CoreAddresses.json");
     }
 
-    function genAsset(string memory symbol, uint8 decimals, string memory price) internal returns (Asset memory a) {
+    function genAsset(string memory symbol, uint8 decimals, string memory price, uint256 priceNum) internal returns (Asset memory a) {
         a.symbol = symbol;
         a.asset = address(new TestERC20(string(abi.encodePacked(symbol, " Token")), symbol, decimals, false));
         a.vault = factory.createProxy(address(0), true, abi.encodePacked(a.asset, address(oracle), unitOfAccount));
         a.price = price;
+        a.priceNum = priceNum;
         IEVault(a.vault).setHookConfig(address(0), 0);
         IEVault(a.vault).setInterestRateModel(address(new IRMTestDefault()));
         IEVault(a.vault).setMaxLiquidationDiscount(0.2e4);
@@ -181,23 +183,25 @@ contract DeployDev is Script {
     }
 
     function deployAssets() internal {
-        assets.push(genAsset("WETH", 18, "1500"));
-        assets.push(genAsset("wstETH", 18, "2100"));
-        assets.push(genAsset("USDC", 6, "1.000142"));
-        assets.push(genAsset("USDT", 6, "0.999218"));
-        assets.push(genAsset("DAI", 18, "1.00123"));
-        assets.push(genAsset("USDZ", 6, "1.00081"));
+        assets.push(genAsset("WETH", 18, "2865", 2865e18));
+        assets.push(genAsset("wstETH", 18, "3055", 3055e18));
+        assets.push(genAsset("USDC", 6, "1.000142", 1e18 * 1e12));
+        assets.push(genAsset("USDT", 6, "0.999218", 1e18 * 1e12));
+        assets.push(genAsset("DAI", 18, "1.00123", 1e18));
+        assets.push(genAsset("USDZ", 6, "1.00081", 1e18 * 1e12));
 
         for (uint256 i; i < assets.length; ++i) {
-            oracle.setPrice(assets[i].vault, unitOfAccount, 1 ether); // FIXME
+            oracle.setPrice(assets[i].vault, unitOfAccount, assets[i].priceNum);
 
             for (uint256 j; j < assets.length; ++j) {
                 if (i == j) continue;
-                IEVault(assets[i].vault).setLTV(assets[j].vault, 0.88e4, 0.9e4, 0);
+                IEVault(assets[i].vault).setLTV(assets[j].vault, 0.92e4, 0.94e4, 0);
             }
         }
 
-        IEVault(assets[4].vault).setLTV(assets[0].vault, 0.5e4, 0.52e4, 0); // lower WETH/DAI LTV for testing
+        IEVault(assets[0].vault).setLTV(assets[1].vault, 0.5e4, 0.52e4, 0); // lower wstETH/WETH LTV for testing
+        IEVault(assets[1].vault).setLTV(assets[0].vault, 0.91e4, 0.93e4, 0); // change WETH/wstETH LTV for testing
+        IEVault(assets[1].vault).setLTV(assets[2].vault, 0.8e4, 0.82e4, 0); // change USDC/wstETH LTV for testing
 
         address[] memory vaults = new address[](assets.length);
         for (uint256 i; i < assets.length; ++i) {
@@ -250,7 +254,7 @@ contract DeployDev is Script {
         TestERC20 assetWETH = TestERC20(eWETH.asset());
 
         IEVault ewstETH = IEVault(assets[1].vault);
-        TestERC20 assetewstETH = TestERC20(ewstETH.asset());
+        TestERC20 assetwstETH = TestERC20(ewstETH.asset());
 
         IEVault eUSDC = IEVault(assets[2].vault);
         TestERC20 assetUSDC = TestERC20(eUSDC.asset());
@@ -269,22 +273,22 @@ contract DeployDev is Script {
 
         assetUSDC.mint(user2, 1000000e6);
         assetUSDT.mint(user2, 1000000e6);
-        assetWETH.mint(user2, 10e18);
-        assetewstETH.mint(user2, 10e18);
+        assetWETH.mint(user2, 100000e18);
+        assetwstETH.mint(user2, 100000e18);
         assetDAI.mint(user2, 1000000e18);
         assetUSDZ.mint(user2, 1000000e6);
 
         assetUSDC.approve(address(eUSDC), type(uint256).max);
         assetUSDT.approve(address(eUSDT), type(uint256).max);
         assetWETH.approve(address(eWETH), type(uint256).max);
-        assetewstETH.approve(address(ewstETH), type(uint256).max);
+        assetwstETH.approve(address(ewstETH), type(uint256).max);
         assetDAI.approve(address(eDAI), type(uint256).max);
         assetUSDZ.approve(address(eUSDZ), type(uint256).max);
 
         eUSDC.deposit(1000000e6, user2);
         eUSDT.deposit(1000000e6, user2);
-        eWETH.deposit(10e18, user2);
-        ewstETH.deposit(10e18, user2);
+        eWETH.deposit(100000e18, user2);
+        ewstETH.deposit(100000e18, user2);
         eDAI.deposit(1000000e18, user2);
         eUSDZ.deposit(1000000e6, user2);
 
@@ -293,20 +297,23 @@ contract DeployDev is Script {
         // user0 is going to setup a position
         vm.startBroadcast(user0PK);
 
-        assetUSDC.mint(user0, 100000e6);
-        assetUSDC.approve(address(eUSDC), type(uint256).max);
-        eUSDC.deposit(100000e6, user0);
-
         evc.enableCollateral(user0, address(eUSDC));
-        evc.enableController(user0, address(eUSDT));
-        eUSDT.borrow(80000e6, user0);
+        evc.enableCollateral(user0, address(eWETH));
 
-        assetWETH.mint(user0, 10e18);
+        assetUSDC.mint(user0, 80000e6);
+        assetUSDC.approve(address(eUSDC), type(uint256).max);
+        eUSDC.deposit(80000e6, user0);
+
+        assetWETH.mint(user0, 20.9424e18);
         assetWETH.approve(address(eWETH), type(uint256).max);
-        eWETH.deposit(10e18, user0);
+        eWETH.deposit(20.9424e18, user0);
+
+        evc.enableController(user0, address(ewstETH));
+        ewstETH.borrow(30.7e18, user0);
 
         // Deposit a some USDT shares to user0 subaccount 1
 
+/*
         assetUSDT.mint(user2, 10000e6);
         assetUSDT.approve(address(eUSDT), type(uint256).max);
         eUSDT.deposit(10000e6, getSubaccount(user0, 1));
@@ -314,12 +321,14 @@ contract DeployDev is Script {
         //assetUSDZ.mint(user0, 10000e6);
         //assetUSDZ.approve(address(eUSDZ), type(uint256).max);
         //eUSDZ.deposit(10000e6, getSubaccount(user0, 1));
+        */
 
         // Give a bunch of extra spending cash
 
         assetUSDC.mint(user0, 1000000e6);
         assetUSDT.mint(user0, 1000000e6);
         assetWETH.mint(user0, 1000e18);
+        assetwstETH.mint(user0, 1000e18);
         assetDAI.mint(user0, 1000000e18);
 
         //assetUSDC.approve(address(eulerSwapPeriphery), type(uint256).max);

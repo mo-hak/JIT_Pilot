@@ -68,6 +68,11 @@ contract MaglevLens {
         }
     }
 
+    function myEnteredMarkets(address evc, address me) external view returns (address[] memory collaterals, address[] memory controllers) {
+        collaterals = IEVC(evc).getCollaterals(me);
+        controllers = IEVC(evc).getControllers(me);
+    }
+
 
 
 
@@ -94,6 +99,21 @@ contract MaglevLens {
             IEVault(vault0).LTVBorrow(vault1),
             IEVault(vault1).LTVBorrow(vault0)
         );
+    }
+
+    function getLTVMatrix(address[] calldata vaults, bool liquidationLtv) external view returns (uint16[] memory ltvs) {
+        uint256 num = vaults.length;
+        ltvs = new uint16[](num * num);
+
+        for (uint256 i = 0; i < num; ++i) {
+            address collateralVault = vaults[i];
+
+            for (uint256 j = 0; j < num; ++j) {
+                if (i == j) continue;
+                IEVault debtVault = IEVault(vaults[j]);
+                ltvs[(i*num) + j] = liquidationLtv ? debtVault.LTVLiquidation(collateralVault) : debtVault.LTVBorrow(collateralVault);
+            }
+        }
     }
 
 
