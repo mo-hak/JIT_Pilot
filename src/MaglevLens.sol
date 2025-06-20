@@ -40,6 +40,57 @@ contract MaglevLens {
         }
     }
 
+    struct VaultDetailed {
+        // IGovernance
+        address governorAdmin;
+        address feeReceiver;
+        uint16 interestFee;
+        address interestRateModel;
+        uint256 protocolFeeShare;
+        address protocolFeeReceiver;
+        uint16 maxLiquidationDiscount;
+        uint16 liquidationCoolOffTime;
+        address hookTarget;
+        uint32 hookedOps;
+        uint32 configFlags;
+        address unitOfAccount;
+        address oracle;
+
+        // IBorrowing
+        address dToken;
+
+        // IVault
+        uint256 accumulatedFees;
+        address creator;
+    }
+
+    function vaultsDetailed(address[] calldata vaults) external view returns (VaultDetailed[] memory output) {
+        output = new VaultDetailed[](vaults.length);
+
+        for (uint i; i < vaults.length; ++i) {
+            IEVault v = IEVault(vaults[i]);
+            VaultDetailed memory o = output[i];
+
+            o.governorAdmin = v.governorAdmin();
+            o.feeReceiver = v.feeReceiver();
+            o.interestFee = v.interestFee();
+            o.interestRateModel = v.interestRateModel();
+            o.protocolFeeShare = v.protocolFeeShare();
+            o.protocolFeeReceiver = v.protocolFeeReceiver();
+            o.maxLiquidationDiscount = v.maxLiquidationDiscount();
+            o.liquidationCoolOffTime = v.liquidationCoolOffTime();
+            (o.hookTarget, o.hookedOps) = v.hookConfig();
+            o.configFlags = v.configFlags();
+            o.unitOfAccount = v.unitOfAccount();
+            o.oracle = v.oracle();
+
+            o.dToken = v.dToken();
+
+            o.accumulatedFees = v.accumulatedFees();
+            o.creator = v.creator();
+        }
+    }
+
     struct VaultPersonalState {
         uint256 packed;
     }
@@ -92,13 +143,6 @@ contract MaglevLens {
 
         borrowAPY /= 1e18;
         supplyAPY /= 1e18;
-    }
-
-    function getLTVPair(address vault0, address vault1) external view returns (uint16, uint16) {
-        return (
-            IEVault(vault0).LTVBorrow(vault1),
-            IEVault(vault1).LTVBorrow(vault0)
-        );
     }
 
     function getLTVMatrix(address[] calldata vaults, bool liquidationLtv) external view returns (uint16[] memory ltvs) {

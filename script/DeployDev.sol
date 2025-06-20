@@ -203,6 +203,9 @@ contract DeployDev is Script {
         IEVault(assets[1].vault).setLTV(assets[0].vault, 0.91e4, 0.93e4, 0); // change WETH/wstETH LTV for testing
         IEVault(assets[1].vault).setLTV(assets[2].vault, 0.8e4, 0.82e4, 0); // change USDC/wstETH LTV for testing
 
+        IEVault(assets[0].vault).setLTV(assets[2].vault, 0.65e4, 0.67e4, 0); // change USDC/WETH LTV for testing
+        IEVault(assets[0].vault).setLTV(assets[3].vault, 0.85e4, 0.87e4, 0); // change USDT/WETH LTV for testing
+
         address[] memory vaults = new address[](assets.length);
         for (uint256 i; i < assets.length; ++i) {
             vaults[i] = assets[i].vault;
@@ -298,22 +301,22 @@ contract DeployDev is Script {
         vm.startBroadcast(user0PK);
 
         evc.enableCollateral(user0, address(eUSDC));
-        evc.enableCollateral(user0, address(eWETH));
+        evc.enableCollateral(user0, address(eUSDT));
 
-        assetUSDC.mint(user0, 80000e6);
+        assetUSDC.mint(user0, 10000e6);
         assetUSDC.approve(address(eUSDC), type(uint256).max);
-        eUSDC.deposit(80000e6, user0);
+        eUSDC.deposit(10000e6, user0);
 
-        assetWETH.mint(user0, 20.9424e18);
-        assetWETH.approve(address(eWETH), type(uint256).max);
-        eWETH.deposit(20.9424e18, user0);
+        assetUSDT.mint(user0, 30000e6);
+        assetUSDT.approve(address(eUSDT), type(uint256).max);
+        eUSDT.deposit(30000e6, user0);
 
-        evc.enableController(user0, address(ewstETH));
-        ewstETH.borrow(30.7e18, user0);
+        evc.enableController(user0, address(eWETH));
+        eWETH.borrow(10e18, user0);
 
-        // Deposit a some USDT shares to user0 subaccount 1
 
 /*
+        // Deposit some USDT shares to user0 subaccount 1
         assetUSDT.mint(user2, 10000e6);
         assetUSDT.approve(address(eUSDT), type(uint256).max);
         eUSDT.deposit(10000e6, getSubaccount(user0, 1));
