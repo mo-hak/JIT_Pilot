@@ -49,7 +49,6 @@ import {PoolManagerDeployer} from "euler-swap/../test/utils/PoolManagerDeployer.
 
 import {MaglevLens} from "src/MaglevLens.sol";
 
-
 struct Asset {
     string symbol;
     address asset;
@@ -190,7 +189,10 @@ contract DeployScenario is Script {
         vm.writeJson(result, "./dev-ctx/addresses/31337/CoreAddresses.json");
     }
 
-    function genAsset(string memory symbol, uint8 decimals, string memory price, uint256 priceNum) internal returns (TestERC20, IEVault) {
+    function genAsset(string memory symbol, uint8 decimals, string memory price, uint256 priceNum)
+        internal
+        returns (TestERC20, IEVault)
+    {
         Asset memory a;
 
         a.symbol = symbol;
@@ -248,7 +250,16 @@ contract DeployScenario is Script {
             vm.writeLine(pricesFile, "{");
 
             for (uint256 i; i < assets.length; ++i) {
-                string memory line = string(abi.encodePacked("\"", vm.toString(assets[i].asset), "\": {\"price\":", assets[i].price, "}", (i == assets.length - 1 ? "" : ",") ));
+                string memory line = string(
+                    abi.encodePacked(
+                        "\"",
+                        vm.toString(assets[i].asset),
+                        "\": {\"price\":",
+                        assets[i].price,
+                        "}",
+                        (i == assets.length - 1 ? "" : ",")
+                    )
+                );
                 vm.writeLine(pricesFile, line);
             }
 

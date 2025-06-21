@@ -12,7 +12,7 @@ contract MaglevLens {
 
     function vaultsStatic(address[] calldata vaults) external view returns (bytes[] memory output) {
         output = new bytes[](vaults.length);
-        for (uint i; i < vaults.length; ++i) {
+        for (uint256 i; i < vaults.length; ++i) {
             IEVault v = IEVault(vaults[i]);
             output[i] = abi.encodePacked(v.asset(), v.decimals(), v.symbol());
         }
@@ -26,7 +26,7 @@ contract MaglevLens {
     function vaultsGlobal(address[] calldata vaults) external view returns (VaultGlobal[] memory output) {
         output = new VaultGlobal[](vaults.length);
 
-        for (uint i; i < vaults.length; ++i) {
+        for (uint256 i; i < vaults.length; ++i) {
             IEVault v = IEVault(vaults[i]);
 
             uint256 cash = v.cash();
@@ -55,10 +55,8 @@ contract MaglevLens {
         uint32 configFlags;
         address unitOfAccount;
         address oracle;
-
         // IBorrowing
         address dToken;
-
         // IVault
         uint256 accumulatedFees;
         address creator;
@@ -67,7 +65,7 @@ contract MaglevLens {
     function vaultsDetailed(address[] calldata vaults) external view returns (VaultDetailed[] memory output) {
         output = new VaultDetailed[](vaults.length);
 
-        for (uint i; i < vaults.length; ++i) {
+        for (uint256 i; i < vaults.length; ++i) {
             IEVault v = IEVault(vaults[i]);
             VaultDetailed memory o = output[i];
 
@@ -95,9 +93,15 @@ contract MaglevLens {
         uint256 packed;
     }
 
-    function vaultsPersonalState(address evc, address me, uint256 subAccountBitmask, address[] calldata vaults) external view returns (VaultPersonalState[] memory output) {
+    function vaultsPersonalState(address evc, address me, uint256 subAccountBitmask, address[] calldata vaults)
+        external
+        view
+        returns (VaultPersonalState[] memory output)
+    {
         uint256 numAccounts;
-        for (uint256 b = subAccountBitmask; b != 0; b >>= 1) if (b & 1 != 0) numAccounts++;
+        for (uint256 b = subAccountBitmask; b != 0; b >>= 1) {
+            if (b & 1 != 0) numAccounts++;
+        }
 
         output = new VaultPersonalState[](numAccounts * vaults.length);
 
@@ -111,7 +115,8 @@ contract MaglevLens {
                 IEVault v = IEVault(vaults[j]);
 
                 uint256 index = (currAccount * vaults.length) + j;
-                uint256 flags = (IEVC(evc).isCollateralEnabled(a, address(v)) ? 1 : 0) | (IEVC(evc).isControllerEnabled(a, address(v)) ? 2 : 0);
+                uint256 flags = (IEVC(evc).isCollateralEnabled(a, address(v)) ? 1 : 0)
+                    | (IEVC(evc).isControllerEnabled(a, address(v)) ? 2 : 0);
                 output[index].packed = (flags << 224) | (v.balanceOf(a) << 112) | v.debtOf(a);
             }
 
@@ -119,18 +124,22 @@ contract MaglevLens {
         }
     }
 
-    function myEnteredMarkets(address evc, address me) external view returns (address[] memory collaterals, address[] memory controllers) {
+    function myEnteredMarkets(address evc, address me)
+        external
+        view
+        returns (address[] memory collaterals, address[] memory controllers)
+    {
         collaterals = IEVC(evc).getCollaterals(me);
         controllers = IEVC(evc).getControllers(me);
     }
 
-
-
-
-
     uint256 internal constant SECONDS_PER_YEAR = 365.2425 * 86400;
 
-    function _computeAPYs(uint256 borrowSPY, uint256 cash, uint256 borrows, uint256 interestFee) internal pure returns (uint256 borrowAPY, uint256 supplyAPY) {
+    function _computeAPYs(uint256 borrowSPY, uint256 cash, uint256 borrows, uint256 interestFee)
+        internal
+        pure
+        returns (uint256 borrowAPY, uint256 supplyAPY)
+    {
         uint256 totalAssets = cash + borrows;
         bool overflow;
 
@@ -145,7 +154,11 @@ contract MaglevLens {
         supplyAPY /= 1e18;
     }
 
-    function getLTVMatrix(address[] calldata vaults, bool liquidationLtv) external view returns (uint16[] memory ltvs) {
+    function getLTVMatrix(address[] calldata vaults, bool liquidationLtv)
+        external
+        view
+        returns (uint16[] memory ltvs)
+    {
         uint256 num = vaults.length;
         ltvs = new uint16[](num * num);
 
@@ -155,13 +168,11 @@ contract MaglevLens {
             for (uint256 j = 0; j < num; ++j) {
                 if (i == j) continue;
                 IEVault debtVault = IEVault(vaults[j]);
-                ltvs[(i*num) + j] = liquidationLtv ? debtVault.LTVLiquidation(collateralVault) : debtVault.LTVBorrow(collateralVault);
+                ltvs[(i * num) + j] =
+                    liquidationLtv ? debtVault.LTVLiquidation(collateralVault) : debtVault.LTVBorrow(collateralVault);
             }
         }
     }
-
-
-
 
     struct EulerSwapData {
         address addr;
@@ -181,7 +192,7 @@ contract MaglevLens {
         output.addr = poolAddr;
         output.params = pool.getParams();
         {
-            (uint112 reserve0, uint112 reserve1, ) = pool.getReserves();
+            (uint112 reserve0, uint112 reserve1,) = pool.getReserves();
             output.reserve0 = reserve0;
             output.reserve1 = reserve1;
         }
@@ -207,21 +218,32 @@ contract MaglevLens {
         }
     }
 
-    function eulerSwapQuoteMulti(address[] memory eulerSwaps, address tokenIn, address tokenOut, uint256 amount, bool exactIn) external view returns (uint256[] memory quotes) {
+    function eulerSwapQuoteMulti(
+        address[] memory eulerSwaps,
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        bool exactIn
+    ) external view returns (uint256[] memory quotes) {
         quotes = new uint256[](eulerSwaps.length);
 
         for (uint256 i = 0; i < eulerSwaps.length; ++i) {
             try IEulerSwap(eulerSwaps[i]).computeQuote(tokenIn, tokenOut, amount, exactIn) returns (uint256 q) {
                 quotes[i] = q;
-            } catch {
-            }
+            } catch {}
         }
     }
 
     error AssertEulerSwapReservesFailure();
 
-    function assertEulerSwapReserves(address eulerSwap, uint112 reserve0Min, uint112 reserve0Max, uint112 reserve1Min, uint112 reserve1Max) external view {
-        (uint112 reserve0, uint112 reserve1, ) = IEulerSwap(eulerSwap).getReserves();
+    function assertEulerSwapReserves(
+        address eulerSwap,
+        uint112 reserve0Min,
+        uint112 reserve0Max,
+        uint112 reserve1Min,
+        uint112 reserve1Max
+    ) external view {
+        (uint112 reserve0, uint112 reserve1,) = IEulerSwap(eulerSwap).getReserves();
         require(reserve0 >= reserve0Min && reserve0 <= reserve0Max, AssertEulerSwapReservesFailure());
         require(reserve1 >= reserve1Min && reserve1 <= reserve1Max, AssertEulerSwapReservesFailure());
     }
