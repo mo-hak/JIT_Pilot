@@ -115,17 +115,17 @@ contract DeployDev is Script {
     function run() public {
         vm.startBroadcast(user3PK);
 
-        deployMainSystem();
+        deployEulerSystem();
         deployAssets();
         deployEulerSwap();
-        deployMaglev();
+        deployMaglevLens();
 
         vm.stopBroadcast();
 
         setupUsers();
     }
 
-    function deployMainSystem() internal {
+    function deployEulerSystem() internal {
         admin = makeAddr("admin");
         feeReceiver = makeAddr("feeReceiver");
         protocolFeeReceiver = makeAddr("protocolFeeReceiver");
@@ -241,7 +241,7 @@ contract DeployDev is Script {
         vm.writeJson(result, "./dev-ctx/addresses/31337/EulerSwapAddresses.json");
     }
 
-    function deployMaglev() internal {
+    function deployMaglevLens() internal {
         maglevLens = new MaglevLens();
 
         string memory result = vm.serializeAddress("maglev", "maglevLens", address(maglevLens));
