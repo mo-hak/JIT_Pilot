@@ -2,7 +2,8 @@
 
 Devland is a framework for running a simple testing blockchain (anvil) and installing a basic instance of the Euler contracts for development and testing purposes.
 
-* Fast and deterministic: The entire environment can be created and installed in a second or two. This lets you setup testing/dev scenarios and instantly reset them to the starting conditions, which is helpful for development. By editing the file `script/DeployDev.sol` you can create self-contained scenarios and send them to other devs, who can get started instantly.
+* Fast and deterministic: The entire environment can be created and installed in a second or two. This lets you setup testing/dev scenarios and instantly reset them to the starting conditions, which is helpful for development.
+* Self-contained scenarios can be created to reproduce a starting state, and to send the state to other devs, who can get started instantly.
 * Lightweight: It does not use forge-style nested submodules. Instead, each project is checked out exactly once in a `libflat` directory, and then remappings are used to map depenencies for each project. This means that each repo is only checked out once, saving time and diskspace. However, it also means that only a single version of a dependency can be installed, globally.
 
 ## Usage
@@ -13,9 +14,9 @@ First [install foundry](https://getfoundry.sh/) then run:
 
     ./install.sh
 
-### Run anvil
+### Run devland
 
-    ./run.sh
+    ./devland.sh
 
 If all goes well, your RPC will be available on the standard `http://127.0.0.1:8545` endpoint.
 
@@ -27,6 +28,15 @@ The default is just to use the standard anvil mnemonic. For example this is user
 * Address: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
 
 Import the above private key into metamask, and then change network to Foundry (chain id 31337).
+
+
+## Scenarios
+
+Scenarios are Solidity scripts that inherit from the `DeployScenario` contract, and live in the directory `script/scenarios/`.
+
+To build your own scenario, copy one of the existing scenario files, edit it to meet your requirements, and then provide the scenario name as an argument to the `devland.sh` script. For example:
+
+    ./devland.sh MyCustomScenario
 
 
 ## Extras
