@@ -101,6 +101,24 @@ contract DeployDev is Script {
 
     Asset[] assets;
 
+    TestERC20 assetWETH;
+    IEVault eWETH;
+
+    TestERC20 assetwstETH;
+    IEVault ewstETH;
+
+    TestERC20 assetUSDC;
+    IEVault eUSDC;
+
+    TestERC20 assetUSDT;
+    IEVault eUSDT;
+
+    TestERC20 assetDAI;
+    IEVault eDAI;
+
+    TestERC20 assetUSDZ;
+    IEVault eUSDZ;
+
     //////// EulerSwap
 
     address poolManager;
@@ -170,25 +188,31 @@ contract DeployDev is Script {
         vm.writeJson(result, "./dev-ctx/addresses/31337/CoreAddresses.json");
     }
 
-    function genAsset(string memory symbol, uint8 decimals, string memory price, uint256 priceNum) internal returns (Asset memory a) {
+    function genAsset(string memory symbol, uint8 decimals, string memory price, uint256 priceNum) internal returns (TestERC20, IEVault) {
+        Asset memory a;
+
         a.symbol = symbol;
         a.asset = address(new TestERC20(string(abi.encodePacked(symbol, " Token")), symbol, decimals, false));
         a.vault = factory.createProxy(address(0), true, abi.encodePacked(a.asset, address(oracle), unitOfAccount));
         a.price = price;
         a.priceNum = priceNum;
+
         IEVault(a.vault).setHookConfig(address(0), 0);
         IEVault(a.vault).setInterestRateModel(address(new IRMTestDefault()));
         IEVault(a.vault).setMaxLiquidationDiscount(0.2e4);
         IEVault(a.vault).setFeeReceiver(feeReceiver);
+
+        assets.push(a);
+        return (TestERC20(a.asset), IEVault(a.vault));
     }
 
     function deployAssets() internal {
-        assets.push(genAsset("WETH", 18, "2865", 2865e18));
-        assets.push(genAsset("wstETH", 18, "3055", 3055e18));
-        assets.push(genAsset("USDC", 6, "1.000142", 1e18 * 1e12));
-        assets.push(genAsset("USDT", 6, "0.999218", 1e18 * 1e12));
-        assets.push(genAsset("DAI", 18, "1.00123", 1e18));
-        assets.push(genAsset("USDZ", 6, "1.00081", 1e18 * 1e12));
+        (assetWETH, eWETH) = genAsset("WETH", 18, "2865", 2865e18);
+        (assetwstETH, ewstETH) = genAsset("wstETH", 18, "3055", 3055e18);
+        (assetUSDC, eUSDC) = genAsset("USDC", 6, "1.000142", 1e18 * 1e12);
+        (assetUSDT, eUSDT) = genAsset("USDT", 6, "0.999218", 1e18 * 1e12);
+        (assetDAI, eDAI) = genAsset("DAI", 18, "1.00123", 1e18);
+        (assetUSDZ, eUSDZ) = genAsset("USDZ", 6, "1.00081", 1e18 * 1e12);
 
         for (uint256 i; i < assets.length; ++i) {
             oracle.setPrice(assets[i].vault, unitOfAccount, assets[i].priceNum);
@@ -199,12 +223,12 @@ contract DeployDev is Script {
             }
         }
 
-        IEVault(assets[0].vault).setLTV(assets[1].vault, 0.5e4, 0.52e4, 0); // lower wstETH/WETH LTV for testing
-        IEVault(assets[1].vault).setLTV(assets[0].vault, 0.91e4, 0.93e4, 0); // change WETH/wstETH LTV for testing
-        IEVault(assets[1].vault).setLTV(assets[2].vault, 0.8e4, 0.82e4, 0); // change USDC/wstETH LTV for testing
+        eWETH.setLTV(address(ewstETH), 0.5e4, 0.52e4, 0); // lower wstETH/WETH LTV for testing
+        ewstETH.setLTV(address(eWETH), 0.91e4, 0.93e4, 0); // change WETH/wstETH LTV for testing
+        ewstETH.setLTV(address(eUSDC), 0.8e4, 0.82e4, 0); // change USDC/wstETH LTV for testing
 
-        IEVault(assets[0].vault).setLTV(assets[2].vault, 0.65e4, 0.67e4, 0); // change USDC/WETH LTV for testing
-        IEVault(assets[0].vault).setLTV(assets[3].vault, 0.85e4, 0.87e4, 0); // change USDT/WETH LTV for testing
+        eWETH.setLTV(address(eUSDC), 0.65e4, 0.67e4, 0); // change USDC/WETH LTV for testing
+        eWETH.setLTV(address(eUSDT), 0.85e4, 0.87e4, 0); // change USDT/WETH LTV for testing
 
         address[] memory vaults = new address[](assets.length);
         for (uint256 i; i < assets.length; ++i) {
@@ -253,24 +277,6 @@ contract DeployDev is Script {
     }
 
     function setupUsers() internal {
-        IEVault eWETH = IEVault(assets[0].vault);
-        TestERC20 assetWETH = TestERC20(eWETH.asset());
-
-        IEVault ewstETH = IEVault(assets[1].vault);
-        TestERC20 assetwstETH = TestERC20(ewstETH.asset());
-
-        IEVault eUSDC = IEVault(assets[2].vault);
-        TestERC20 assetUSDC = TestERC20(eUSDC.asset());
-
-        IEVault eUSDT = IEVault(assets[3].vault);
-        TestERC20 assetUSDT = TestERC20(eUSDT.asset());
-
-        IEVault eDAI = IEVault(assets[4].vault);
-        TestERC20 assetDAI = TestERC20(eDAI.asset());
-
-        IEVault eUSDZ = IEVault(assets[5].vault);
-        TestERC20 assetUSDZ = TestERC20(eUSDZ.asset());
-
         // user2 is passive depositor
         vm.startBroadcast(user2PK);
 
