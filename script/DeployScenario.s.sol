@@ -58,7 +58,7 @@ struct Asset {
     uint256 priceNum;
 }
 
-contract DeployDev is Script {
+contract DeployScenario is Script {
     //////// Users
 
     uint256 user0PK = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
@@ -140,7 +140,9 @@ contract DeployDev is Script {
 
         vm.stopBroadcast();
 
-        setupUsers();
+        addLiquidity();
+
+        setup();
     }
 
     function deployEulerSystem() internal {
@@ -206,7 +208,7 @@ contract DeployDev is Script {
         return (TestERC20(a.asset), IEVault(a.vault));
     }
 
-    function deployAssets() internal {
+    function deployAssets() internal virtual {
         (assetWETH, eWETH) = genAsset("WETH", 18, "2865", 2865e18);
         (assetwstETH, ewstETH) = genAsset("wstETH", 18, "3055", 3055e18);
         (assetUSDC, eUSDC) = genAsset("USDC", 6, "1.000142", 1e18 * 1e12);
@@ -276,7 +278,7 @@ contract DeployDev is Script {
         return address(uint160(user) ^ account);
     }
 
-    function setupUsers() internal {
+    function addLiquidity() internal virtual {
         // user2 is passive depositor
         vm.startBroadcast(user2PK);
 
@@ -302,49 +304,16 @@ contract DeployDev is Script {
         eUSDZ.deposit(1000000e6, user2);
 
         vm.stopBroadcast();
-
-        // user0 is going to setup a position
-        vm.startBroadcast(user0PK);
-
-        evc.enableCollateral(user0, address(eUSDC));
-        evc.enableCollateral(user0, address(eUSDT));
-
-        assetUSDC.mint(user0, 10000e6);
-        assetUSDC.approve(address(eUSDC), type(uint256).max);
-        eUSDC.deposit(10000e6, user0);
-
-        assetUSDT.mint(user0, 30000e6);
-        assetUSDT.approve(address(eUSDT), type(uint256).max);
-        eUSDT.deposit(30000e6, user0);
-
-        evc.enableController(user0, address(eWETH));
-        eWETH.borrow(10e18, user0);
-
-
-/*
-        // Deposit some USDT shares to user0 subaccount 1
-        assetUSDT.mint(user2, 10000e6);
-        assetUSDT.approve(address(eUSDT), type(uint256).max);
-        eUSDT.deposit(10000e6, getSubaccount(user0, 1));
-
-        //assetUSDZ.mint(user0, 10000e6);
-        //assetUSDZ.approve(address(eUSDZ), type(uint256).max);
-        //eUSDZ.deposit(10000e6, getSubaccount(user0, 1));
-        */
-
-        // Give a bunch of extra spending cash
-
-        assetUSDC.mint(user0, 1000000e6);
-        assetUSDT.mint(user0, 1000000e6);
-        assetWETH.mint(user0, 1000e18);
-        assetwstETH.mint(user0, 1000e18);
-        assetDAI.mint(user0, 1000000e18);
-
-        //assetUSDC.approve(address(eulerSwapPeriphery), type(uint256).max);
-        //assetUSDT.approve(address(eulerSwapPeriphery), type(uint256).max);
-        //assetWETH.approve(address(eulerSwapPeriphery), type(uint256).max);
-        //assetDAI.approve(address(eulerSwapPeriphery), type(uint256).max);
-
-        vm.stopBroadcast();
     }
+
+    function giveLotsOfCash(address user) internal virtual {
+        assetUSDC.mint(user, 1000000e6);
+        assetUSDT.mint(user, 1000000e6);
+        assetWETH.mint(user, 1000e18);
+        assetwstETH.mint(user, 1000e18);
+        assetDAI.mint(user, 1000000e18);
+        assetUSDZ.mint(user, 1000000e18);
+    }
+
+    function setup() internal virtual {}
 }
