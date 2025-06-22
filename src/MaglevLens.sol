@@ -179,8 +179,9 @@ contract MaglevLens {
                 for (uint256 j = 0; j < num; ++j) {
                     if (i == j) continue;
                     IEVault debtVault = IEVault(vaults[j]);
-                    ltvs[(i * num) + j] =
-                        liquidationLtv ? debtVault.LTVLiquidation(collateralVault) : debtVault.LTVBorrow(collateralVault);
+                    ltvs[(i * num) + j] = liquidationLtv
+                        ? debtVault.LTVLiquidation(collateralVault)
+                        : debtVault.LTVBorrow(collateralVault);
                 }
             }
         }
