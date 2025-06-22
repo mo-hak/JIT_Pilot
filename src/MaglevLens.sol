@@ -11,10 +11,12 @@ contract MaglevLens {
     // Packed: underlying asset (address), decimals (uint8), symbol (variable)
 
     function vaultsStatic(address[] calldata vaults) external view returns (bytes[] memory output) {
-        output = new bytes[](vaults.length);
-        for (uint256 i; i < vaults.length; ++i) {
-            IEVault v = IEVault(vaults[i]);
-            output[i] = abi.encodePacked(v.asset(), v.decimals(), v.symbol());
+        unchecked {
+            output = new bytes[](vaults.length);
+            for (uint256 i; i < vaults.length; ++i) {
+                IEVault v = IEVault(vaults[i]);
+                output[i] = abi.encodePacked(v.asset(), v.decimals(), v.symbol());
+            }
         }
     }
 
@@ -24,19 +26,21 @@ contract MaglevLens {
     }
 
     function vaultsGlobal(address[] calldata vaults) external view returns (VaultGlobal[] memory output) {
-        output = new VaultGlobal[](vaults.length);
+        unchecked {
+            output = new VaultGlobal[](vaults.length);
 
-        for (uint256 i; i < vaults.length; ++i) {
-            IEVault v = IEVault(vaults[i]);
+            for (uint256 i; i < vaults.length; ++i) {
+                IEVault v = IEVault(vaults[i]);
 
-            uint256 cash = v.cash();
-            uint256 borrows = v.totalBorrows();
+                uint256 cash = v.cash();
+                uint256 borrows = v.totalBorrows();
 
-            (uint256 borrowAPY, uint256 supplyAPY) = _computeAPYs(v.interestRate(), cash, borrows, v.interestFee());
-            (uint16 supplyCap, uint16 borrowCap) = v.caps();
+                (uint256 borrowAPY, uint256 supplyAPY) = _computeAPYs(v.interestRate(), cash, borrows, v.interestFee());
+                (uint16 supplyCap, uint16 borrowCap) = v.caps();
 
-            output[i].packed1 = (cash << (112 + 16 + 16)) | (borrows << (16 + 16)) | (supplyCap << 16) | borrowCap;
-            output[i].packed2 = (v.totalSupply() << (48 + 48)) | (supplyAPY << 48) | borrowAPY;
+                output[i].packed1 = (cash << (112 + 16 + 16)) | (borrows << (16 + 16)) | (supplyCap << 16) | borrowCap;
+                output[i].packed2 = (v.totalSupply() << (48 + 48)) | (supplyAPY << 48) | borrowAPY;
+            }
         }
     }
 
@@ -63,29 +67,31 @@ contract MaglevLens {
     }
 
     function vaultsDetailed(address[] calldata vaults) external view returns (VaultDetailed[] memory output) {
-        output = new VaultDetailed[](vaults.length);
+        unchecked {
+            output = new VaultDetailed[](vaults.length);
 
-        for (uint256 i; i < vaults.length; ++i) {
-            IEVault v = IEVault(vaults[i]);
-            VaultDetailed memory o = output[i];
+            for (uint256 i; i < vaults.length; ++i) {
+                IEVault v = IEVault(vaults[i]);
+                VaultDetailed memory o = output[i];
 
-            o.governorAdmin = v.governorAdmin();
-            o.feeReceiver = v.feeReceiver();
-            o.interestFee = v.interestFee();
-            o.interestRateModel = v.interestRateModel();
-            o.protocolFeeShare = v.protocolFeeShare();
-            o.protocolFeeReceiver = v.protocolFeeReceiver();
-            o.maxLiquidationDiscount = v.maxLiquidationDiscount();
-            o.liquidationCoolOffTime = v.liquidationCoolOffTime();
-            (o.hookTarget, o.hookedOps) = v.hookConfig();
-            o.configFlags = v.configFlags();
-            o.unitOfAccount = v.unitOfAccount();
-            o.oracle = v.oracle();
+                o.governorAdmin = v.governorAdmin();
+                o.feeReceiver = v.feeReceiver();
+                o.interestFee = v.interestFee();
+                o.interestRateModel = v.interestRateModel();
+                o.protocolFeeShare = v.protocolFeeShare();
+                o.protocolFeeReceiver = v.protocolFeeReceiver();
+                o.maxLiquidationDiscount = v.maxLiquidationDiscount();
+                o.liquidationCoolOffTime = v.liquidationCoolOffTime();
+                (o.hookTarget, o.hookedOps) = v.hookConfig();
+                o.configFlags = v.configFlags();
+                o.unitOfAccount = v.unitOfAccount();
+                o.oracle = v.oracle();
 
-            o.dToken = v.dToken();
+                o.dToken = v.dToken();
 
-            o.accumulatedFees = v.accumulatedFees();
-            o.creator = v.creator();
+                o.accumulatedFees = v.accumulatedFees();
+                o.creator = v.creator();
+            }
         }
     }
 
@@ -98,29 +104,31 @@ contract MaglevLens {
         view
         returns (VaultPersonalState[] memory output)
     {
-        uint256 numAccounts;
-        for (uint256 b = subAccountBitmask; b != 0; b >>= 1) {
-            if (b & 1 != 0) numAccounts++;
-        }
-
-        output = new VaultPersonalState[](numAccounts * vaults.length);
-
-        uint256 currAccount;
-        for (uint256 i;; ++i) {
-            if (subAccountBitmask & (1 << i) == 0) continue;
-
-            address a = address(uint160(uint256(uint160(me)) ^ i));
-
-            for (uint256 j; j < vaults.length; ++j) {
-                IEVault v = IEVault(vaults[j]);
-
-                uint256 index = (currAccount * vaults.length) + j;
-                uint256 flags = (IEVC(evc).isCollateralEnabled(a, address(v)) ? 1 : 0)
-                    | (IEVC(evc).isControllerEnabled(a, address(v)) ? 2 : 0);
-                output[index].packed = (flags << 224) | (v.balanceOf(a) << 112) | v.debtOf(a);
+        unchecked {
+            uint256 numAccounts;
+            for (uint256 b = subAccountBitmask; b != 0; b >>= 1) {
+                if (b & 1 != 0) numAccounts++;
             }
 
-            if (++currAccount >= numAccounts) break;
+            output = new VaultPersonalState[](numAccounts * vaults.length);
+
+            uint256 currAccount;
+            for (uint256 i;; ++i) {
+                if (subAccountBitmask & (1 << i) == 0) continue;
+
+                address a = address(uint160(uint256(uint160(me)) ^ i));
+
+                for (uint256 j; j < vaults.length; ++j) {
+                    IEVault v = IEVault(vaults[j]);
+
+                    uint256 index = (currAccount * vaults.length) + j;
+                    uint256 flags = (IEVC(evc).isCollateralEnabled(a, address(v)) ? 1 : 0)
+                        | (IEVC(evc).isControllerEnabled(a, address(v)) ? 2 : 0);
+                    output[index].packed = (flags << 224) | (v.balanceOf(a) << 112) | v.debtOf(a);
+                }
+
+                if (++currAccount >= numAccounts) break;
+            }
         }
     }
 
@@ -140,18 +148,20 @@ contract MaglevLens {
         pure
         returns (uint256 borrowAPY, uint256 supplyAPY)
     {
-        uint256 totalAssets = cash + borrows;
-        bool overflow;
+        unchecked {
+            uint256 totalAssets = cash + borrows;
+            bool overflow;
 
-        (borrowAPY, overflow) = RPow.rpow(borrowSPY + 1e27, SECONDS_PER_YEAR, 1e27);
+            (borrowAPY, overflow) = RPow.rpow(borrowSPY + 1e27, SECONDS_PER_YEAR, 1e27);
 
-        if (overflow) return (0, 0);
+            if (overflow) return (0, 0);
 
-        borrowAPY -= 1e27;
-        supplyAPY = totalAssets == 0 ? 0 : borrowAPY * borrows * (1e4 - interestFee) / totalAssets / 1e4;
+            borrowAPY -= 1e27;
+            supplyAPY = totalAssets == 0 ? 0 : borrowAPY * borrows * (1e4 - interestFee) / totalAssets / 1e4;
 
-        borrowAPY /= 1e18;
-        supplyAPY /= 1e18;
+            borrowAPY /= 1e18;
+            supplyAPY /= 1e18;
+        }
     }
 
     function getLTVMatrix(address[] calldata vaults, bool liquidationLtv)
@@ -159,17 +169,19 @@ contract MaglevLens {
         view
         returns (uint16[] memory ltvs)
     {
-        uint256 num = vaults.length;
-        ltvs = new uint16[](num * num);
+        unchecked {
+            uint256 num = vaults.length;
+            ltvs = new uint16[](num * num);
 
-        for (uint256 i = 0; i < num; ++i) {
-            address collateralVault = vaults[i];
+            for (uint256 i = 0; i < num; ++i) {
+                address collateralVault = vaults[i];
 
-            for (uint256 j = 0; j < num; ++j) {
-                if (i == j) continue;
-                IEVault debtVault = IEVault(vaults[j]);
-                ltvs[(i * num) + j] =
-                    liquidationLtv ? debtVault.LTVLiquidation(collateralVault) : debtVault.LTVBorrow(collateralVault);
+                for (uint256 j = 0; j < num; ++j) {
+                    if (i == j) continue;
+                    IEVault debtVault = IEVault(vaults[j]);
+                    ltvs[(i * num) + j] =
+                        liquidationLtv ? debtVault.LTVLiquidation(collateralVault) : debtVault.LTVBorrow(collateralVault);
+                }
             }
         }
     }
