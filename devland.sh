@@ -12,11 +12,12 @@ function cleanup {
 trap cleanup EXIT
 
 
-anvil --code-size-limit 100000 &
+PORT=${PORT:-8545}
+anvil --port $PORT --code-size-limit 100000 &
 sleep 1
 
 
-bash ./deploy-scenario.sh "$SCENARIO"
+RPC_URL=http://127.0.0.1:$PORT bash ./deploy-scenario.sh "$SCENARIO"
 
 
 echo -------------------------------

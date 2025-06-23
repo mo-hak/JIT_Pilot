@@ -20,6 +20,14 @@ First [install foundry](https://getfoundry.sh/) then run:
 
 If all goes well, your RPC will be available on the standard `http://127.0.0.1:8545` endpoint.
 
+To use a custom port (e.g., if 8545 is already in use):
+
+    PORT=8546 ./devland.sh
+
+You can also deploy scenarios to a different RPC endpoint directly:
+
+    RPC_URL=http://127.0.0.1:8546 ./deploy-scenario.sh EulerSwapBasic
+
 ### Private keys
 
 The default is just to use the standard anvil mnemonic. For example this is user 0:
